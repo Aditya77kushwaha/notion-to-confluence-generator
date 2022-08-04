@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client"
+import 'dotenv/config'
 
 const notion = new Client({ auth: process.env.NOTION_KEY })
 
@@ -28,4 +29,40 @@ async function addItem(text) {
     }
 }
 
-addItem("Yurts in Big Sur, California")
+// addItem("Yurts in Big Sur, California")
+
+
+//test : gets a dB in a page based on filters
+async function getdB() {
+    const response = await notion.databases.query({
+        database_id: databaseId,
+        filter: {
+            or: [
+                {
+                    property: 'In stock',
+                    checkbox: {
+                        equals: true,
+                    },
+                },
+                {
+                    property: 'Cost of next trip',
+                    number: {
+                        greater_than_or_equal_to: 2,
+                    },
+                },
+            ],
+        },
+        sorts: [
+            {
+                property: 'Last ordered',
+                direction: 'ascending',
+            },
+        ],
+    });
+    console.log(response);
+};
+
+
+//test : retrieve whole dB 
+const response = await notion.databases.retrieve({ database_id: databaseId });
+console.log(response);
