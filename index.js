@@ -1,219 +1,137 @@
 import "dotenv/config";
-import { getdB } from "./utils/notion/dBRequests.js";
-import { getPage } from "./utils/notion/pageRequests.js";
-import { getBlock } from "./utils/notion/blockRequests.js";
-import { getChildrenByIdAndType } from "./utils/confluence/contentChildren.js";
-import { postContent } from "./utils/confluence/content.js";
-import { getChildrenById } from "./utils/confluence/contentChildren.js";
+import express from "express";
 import { Client } from "@notionhq/client";
-import Confluence from "confluence-api";
-import "dotenv/config";
+import fetch from "node-fetch";
+
+const app = express();
+app.use(express.json());
+
+const token = process.env.CONF_TOKEN;
 
 const notion = new Client({ auth: process.env.NOTION_KEY });
 
-const databaseId = process.env.NOTION_DATABASE_ID;
-const pageId = "80d942ca-733d-4774-a056-f61b55a4c5e2";
+app.post("/", async (req, res) => {
+  try {
+    const response = await notion.blocks.children.list({
+      block_id: req.body.pageId,
+      page_size: 50,
+    });
+    let myHtml = "",
+      firstNL = true,
+      myTable = "";
 
-const config = {
-  username: "adityakushwaha@gmail.com",
-  password: process.env.CONF_API,
-  baseUrl: `https://adityakushwaha.atlassian.net/wiki`,
-  version: 4, // Confluence major version, optional
-};
-
-const confluence = new Confluence(config);
-
-// calling required functions
-
-// getdB(databaseId);
-// getPage(pageId);
-// getChildrenById(196725); //get all items in a confluence content
-// getChildrenByIdAndType(98377, "comment"); //get all items in a notion page
-
-// const myHtml = "hello world";
-// createContent(myHtml);
-
-// const block = getBlock(pageId);
-// console.log(block);
-
-// postContent("notion-to-confluence", "new", "hi", null);
-
-//generator
-
-async function generate(pageId) {
-  const response = await notion.blocks.children.list({
-    block_id: pageId,
-    page_size: 50,
-  });
-  //   console.log(response.results);
-  response.results.forEach(async (block) => {
-    switch (block.type) {
-      case "paragraph":
-        // console.log(block.paragraph.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new para",
-          block.paragraph.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
+    await Promise.all(
+      response.results.map(async (block) => {
+        if (block.type === "numbered_list_item") {
+          if (firstNL) {
+            myHtml += `<ol>`;
+            firstNL = false;
+          }
+          myHtml += `<li>${block.numbered_list_item.rich_text[0]?.plain_text}</li>`;
+        } else {
+          if (!firstNL) {
+            myHtml += `</ol>`;
+            firstNL = true;
+          }
+          if (block.type === "paragraph") {
+            if (block.paragraph.rich_text[0]?.plain_text) {
+              myHtml += `<p>${block.paragraph.rich_text[0]?.plain_text}</p>`;
             } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
+              myHtml += `<p> </p>`;
             }
           }
-        );
-        break;
-      case "to_do":
-        // console.log(block.to_do.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new todo",
-          block.to_do.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
+          // if( "to_do"){
+          //   myHtml += `<li>${block.to_do.rich_text[0]?.plain_text}</li>`;
+          //   }
+          if (block.type === "bulleted_list_item") {
+            myHtml += `<li>${block.bulleted_list_item.rich_text[0]?.plain_text}</li>`;
           }
-        );
-        break;
-      case "bulleted_list_item":
-        // console.log(block.bulleted_list_item.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new list",
-          block.bulleted_list_item.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "numbered_list_item":
-        // console.log(block.numbered_list_item.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new list",
-          block.numbered_list_item.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "child_database":
-        // console.log(block);
-        generate(block.id); //call recursively for sub page
-        break;
-      case "heading_1":
-        // console.log(block.heading_1.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new heading",
-          block.heading_1.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "heading_2":
-        // console.log(block.heading_2.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new heading",
-          block.heading_2.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "heading_3":
-        // console.log(block.heading_3.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new heading",
-          block.heading_3.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "table":
-        // console.log(block.heading_3.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          "new table",
-          block.table,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
-      case "code":
-        // console.log(block.heading_3.rich_text);
-        confluence.postContent(
-          "notion-to-confluence",
-          `new ${block.code.language} code`,
-          block.code.rich_text,
-          "98377",
-          function (err, res) {
-            if (!err) {
-              console.log("Page updated");
-            } else {
-              console.log("Error: " + err);
-              console.log("Response: " + JSON.stringify(res));
-            }
-          }
-        );
-        break;
+          if (block.type === "table") {
+            // console.log("table is", block);
+            const tableResponse = await notion.blocks.children.list({
+              block_id: block.id,
+              page_size: 50,
+            });
+            myTable += `<table><tbody>`;
+            // console.log(tableResponse.results);
 
-      default:
-        console.log(block);
-        console.log("Cannot generate for this notion block");
-        break;
-    }
-  });
+            await Promise.all(
+              tableResponse.results.map(async (tableBlock) => {
+                // console.log(tableBlock.table_row.cells.flat());
+                let i = 0;
+                let j = true;
+                tableBlock.table_row.cells.flat().forEach((cell) => {
+                  // console.log(cell.plain_text);
+                  if (i === 0) myTable += `<tr>`;
+                  if (j) {
+                    // j = false;
+                    // myTable += `<th>${cell.plain_text}</th>`;
+                    myTable += `<td>${cell.plain_text}</td>`;
+                    i++;
+                    if (i === block.table.table_width) {
+                      i = 0;
+                      // j = false;
+                      myTable += `</tr>`;
+                    }
+                  } else {
+                    myTable += `<td>${cell.plain_text}</td>`;
+                    i++;
+                    if (i === block.table.table_width) {
+                      i = 0;
+                      myTable += `</tr>`;
+                    }
+                  }
+                });
+              })
+            );
+            myTable += `</tbody></table>`;
 
-  //   return response;
-}
+            // console.log(myTable);
+            // console.log(tableResponse.results[0].table_row.cells[0]);
+          } else {
+            // console.log(block);
+          }
+        }
+      })
+    );
+    myHtml += myTable;
+    // console.log(myHtml);
+    // console.log(myTable);
+    const bodyData = `{
+                "space": {
+                  "key": "${req.body.spaceKey}"
+                },
+                "type": "page",
+                "title": "${req.body.title}",
+                "body": {
+                  "storage": {
+                    "value": "${myHtml}",
+                    "representation": "storage"
+                  }
+                  }
+              }`;
+    fetch("https://adityakushwaha.atlassian.net/wiki/rest/api/content/", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: bodyData,
+    })
+      .then((response) => {
+        console.log(`Response: ${response.status} ${response.statusText}`);
+        return response.text();
+      })
+      .then((text) => {
+        res.status(200).json(text);
+      })
+      .catch((err) => res.status(500).json(err));
+  } catch (error) {
+    res.status(500).json(error);
+  }
+});
 
-generate(pageId);
+app.listen(8800, () => {
+  console.log("Server running on port 8800");
+});

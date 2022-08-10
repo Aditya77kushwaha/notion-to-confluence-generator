@@ -3,6 +3,7 @@ import "dotenv/config";
 
 const notion = new Client({ auth: process.env.NOTION_KEY });
 
+// console.log(process.env.NOTION_KEY, process.env.NOTION_DATABASE_ID);
 //test : new notion add item request
 export const addItem = async (text, id) => {
   try {
@@ -27,6 +28,8 @@ export const addItem = async (text, id) => {
     return error.body;
   }
 };
+
+// addItem("new item added", process.env.NOTION_DATABASE_ID);
 
 //test : gets a dB in a page based on filters
 export const getdBFilter = async (id) => {
@@ -65,3 +68,5 @@ export const getdB = async (id) => {
   console.log("dB", response);
   return response;
 };
+
+// getdB(process.env.NOTION_DATABASE_ID)
